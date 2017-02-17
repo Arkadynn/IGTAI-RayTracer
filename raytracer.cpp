@@ -190,6 +190,7 @@ float RDM_chiplus(float c) {
 // DdotH : Dir . Half
 // HdotN : Half . Norm
 float RDM_G1(float DdotH, float DdotN, float alpha) {
+  float ret = 0;
   
   float cos_theta = DdotN;
   float cos2_theta = cos_theta * cos_theta;
@@ -200,19 +201,15 @@ float RDM_G1(float DdotH, float DdotN, float alpha) {
   float b = 1 / (alpha * tan_theta);
   float k = DdotH / DdotN;
   
-  float ret = 0;
   
-  if (k <= 0)
-    ret = 0;
-  else if (k > 0 && b < 1.6f)
-    ret = 1;
-  else {
+  if (k > 0 && b < 1.6f) {
     ret = 3.535 * b + 2.181 * b * b;
-    ret /= 1 + 2.276 * b + 2.577 * b * b;
+    ret /= (1 + 2.276 * b + 2.577 * b * b);
+  } else {
+    ret = RDM_chiplus(cos_theta);
   }
   
   return ret;
-
 }
 
 // LdotH : Light . Half
@@ -220,9 +217,7 @@ float RDM_G1(float DdotH, float DdotN, float alpha) {
 // VdotH : View . Half
 // VdotN : View . Norm
 float RDM_Smith(float LdotH, float LdotN, float VdotH, float VdotN, float alpha) {
-
-  //!\todo the Smith fonction
-  return 0.5f;
+  return RDM_G1(LdotH, LdotN, alpha) * RDM_G1(VdotH, VdotN, alpha);
 
 
 }
@@ -236,8 +231,8 @@ float RDM_Smith(float LdotH, float LdotN, float VdotH, float VdotN, float alpha)
 color3 RDM_bsdf_s(float LdotH, float NdotH, float VdotH, float LdotN, float VdotN, Material *m) {
   float D = RDM_Beckmann(NdotH, m->roughness);
   float F = RDM_Fresnel(LdotH, 1, m->IOR);
-  float G = RDM_G1(LdotH, LdotN, m->roughness) * RDM_G1(VdotH, VdotN, m->roughness);
-  
+  float G = RDM_Smith(LdotH, LdotN, VdotH, VdotN, m->roughness);
+ 
   color3 tmp = m->specularColor * D * F * G;
   tmp /= (4 * LdotN * VdotN);
   //!\todo specular term of the bsdf, using D = RDB_Beckmann, F = RDM_Fresnel, G = RDM_Smith
@@ -275,10 +270,10 @@ color3 RDM_bsdf(float LdotH, float NdotH, float VdotH, float LdotN, float VdotN,
 color3 shade(vec3 n, vec3 v, vec3 l, color3 lc, Material *mat ){
   color3 ret = color3(0.f);
   
-  /* Pre-BSDF model
   float cos_theta = dot<float>(n, l);
   if (cos_theta < 0)
     return ret;
+  /* Pre-BSDF model
   
   ret = mat->diffuseColor / (float)M_PI;
   ret *= cos_theta;
@@ -287,19 +282,19 @@ color3 shade(vec3 n, vec3 v, vec3 l, color3 lc, Material *mat ){
 //   /* Beckmann-Fresnel BSDF model
   vec3 tmp = v + l;
   vec3 h = tmp / length<float>(tmp);
-    
+    /*
   vec3 nn = normalize<float>(n);
   vec3 vn = normalize<float>(v);
-  vec3 ln = normalize<float>(l);
+  vec3 ln = normalize<float>(l);*/
   vec3 hn = normalize<float>(h);
   
-  float LdotH = dot<float>(ln, hn);
-  float NdotH = dot<float>(nn, hn);
-  float VdotH = dot<float>(vn, hn);
-  float LdotN = dot<float>(ln, nn);
-  float VdotN = dot<float>(vn, nn);
+  float LdotH = dot<float>(l, hn);
+  float NdotH = dot<float>(n, hn);
+  float VdotH = dot<float>(v, hn);
+  float LdotN = dot<float>(l, n);
+  float VdotN = dot<float>(v, n);
   
-  ret = RDM_bsdf(LdotH, NdotH, VdotH, LdotN, VdotN, mat) * VdotN;
+  ret = RDM_bsdf(LdotH, NdotH, VdotH, LdotN, VdotN, mat) * lc * LdotN;
   //*/
   return ret;
 	    
@@ -313,16 +308,17 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
   if (hasIntersection) {
     color3 c = ret;
     //*
-    for (Light *o : scene->lights) {
-      vec3 light_dir = o->position - intersection.position;
+    for (Light *light : scene->lights) {
+      vec3 light_dir = light->position - intersection.position;
+      vec3 l = normalize<float>(light_dir);
       Ray r;
-      r.dir = normalize<float>(light_dir);
-      r.orig = intersection.position;
+      r.dir = l;
+      r.orig = intersection.position + acne_eps * l;
       r.tmin = acne_eps;
       r.tmax = length<float>(light_dir);
       Intersection shadow;
       if (!intersectScene(scene, &r, &shadow)) {
-	c += shade(intersection.normal, ray->invdir, normalize<float>(light_dir), o->color, intersection.mat);
+	c += shade(intersection.normal, ray->dir, l, light->color, intersection.mat);
       }
     }
     
