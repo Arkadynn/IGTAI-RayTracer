@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <cmath>
 
+#define MAX_DEPTH 15
 
 /// acne_eps is a small constant used to prevent acne when computing intersection
 //  or boucing (add this amount to the position before casting a new ray !
@@ -219,8 +220,7 @@ float RDM_G1(float DdotH, float DdotN, float alpha) {
 // VdotN : View . Norm
 float RDM_Smith(float LdotH, float LdotN, float VdotH, float VdotN, float alpha) {
   return RDM_G1(LdotH, LdotN, alpha) * RDM_G1(VdotH, VdotN, alpha);
-
-
+  
 }
 
 // Specular term of the Cook-torrance bsdf
@@ -286,10 +286,12 @@ color3 shade(vec3 n, vec3 v, vec3 l, color3 lc, Material *mat ){
 //! if tree is not null, use intersectKdTree to compute the intersection instead of intersect scene
 color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {  
   color3 ret = color3(0.f, 0.f, 0.f);
+  
+  if (ray->depth > MAX_DEPTH) return ret;
+  
   Intersection intersection;
-  bool hasIntersection = intersectScene(scene, ray, &intersection);
-  if (hasIntersection) {
-    color3 c = ret;
+  
+  if (intersectScene(scene, ray, &intersection)) {
     for (Light *light : scene->lights) {
       vec3 light_dir = light->position - intersection.position;
       vec3 l = normalize<float>(light_dir);
@@ -297,36 +299,16 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
       rayInit(&r, intersection.position, l, acne_eps, length<float>(light_dir));
       Intersection shadow;
       if (!intersectScene(scene, &r, &shadow)) {
-	color3 contrib = shade(intersection.normal, -ray->dir, l, light->color, intersection.mat);
+	ret += shade(intersection.normal, -ray->dir, l, light->color, intersection.mat);
 	
-	if (ray->depth < 10) {
-	  Ray r2;
-	  rayInit(&r2, intersection.position, reflect(ray->dir, intersection.normal), acne_eps);
-	  r2.depth = ray->depth + 1;
-	  
-	  vec3 refl_dir = r2.dir;
-	  
-	  color3 refl = trace_ray(scene, &r2, tree);
-	  
-	  vec3 h = (ray->dir + refl_dir) / (length<float>(ray->dir + refl_dir));
-	  h = normalize<float>(h);
-	  
-	  c += refl * RDM_Fresnel(dot<float>(refl_dir, h), 1, intersection.mat->IOR);
-	}
-	
-	
-	c += contrib;
       }
     }
     
-    if (c.x > 255)
-      c.x = 255;
-    if (c.y > 255)
-      c.y = 255;
-    if (c.z > 255)
-      c.z = 255;
+    vec3 newDir = normalize<float>(reflect(ray->dir, intersection.normal));
+    float LdotH = dot<float>(newDir, normalize<float>(ray->dir + newDir));
+    rayInit(ray, intersection.position, newDir, acne_eps, 100000, ray->depth+1);
+    ret += RDM_Fresnel(LdotH, 1, intersection.mat->IOR) * trace_ray(scene, ray, tree);
     
-    ret = c;
   } else {
     ret = scene->skyColor;
   }
@@ -341,7 +323,7 @@ void renderImage(Image *img, Scene *scene) {
     
   KdTree *tree =  NULL;
 
-
+  tree = initKdTree(scene);
   //! \todo initialize KdTree
 
   float delta_y = 1.f / (img->height * 0.5f); //! one pixel size

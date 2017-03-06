@@ -8,6 +8,8 @@
 #include <stack>
 
 typedef struct s_kdtreeNode KdTreeNode;
+Scene *sceneGlobal = nullptr;
+int axisGlobal = 0;
 
 struct s_kdtreeNode {
   bool leaf; //! is this node a leaf ?
@@ -49,10 +51,48 @@ struct s_kdtree {
 void subdivide(Scene *scene, KdTree *tree, KdTreeNode *node);
 
 KdTree*  initKdTree(Scene *scene) {
-
-    //!\todo compute scene bbox, store object in outOfTree or inTree depending on type
-    return NULL;
-
+  KdTree* tree = new KdTree();
+  tree->root = initNode(false, 0, 0);
+  tree->root->objects.clear();
+  
+  vec3 aabbmin = vec3(0);
+  vec3 aabbmax = vec3(0);
+  
+  for (unsigned int i = 0; i < scene->objects.size(); i++) {
+    Object *object = scene->objects.at(i);
+    
+    tree->root->objects.push_back(i);
+    
+    Geometry geom = object->geom;
+    switch (object->geom.type) {
+      case SPHERE:
+	float minx = geom.sphere.center.x - geom.sphere.radius;
+	float miny = geom.sphere.center.y - geom.sphere.radius;
+	float minz = geom.sphere.center.z - geom.sphere.radius;
+	
+	if (aabbmin.x > minx) aabbmin.x = minx;
+	if (aabbmin.y > miny) aabbmin.y = miny;
+	if (aabbmin.z > minz) aabbmin.z = minz;
+	
+	float maxx = geom.sphere.center.x + geom.sphere.radius;
+	float maxy = geom.sphere.center.y + geom.sphere.radius;
+	float maxz = geom.sphere.center.z + geom.sphere.radius;
+	
+	if (aabbmax.x < maxx) aabbmax.x = maxx;
+	if (aabbmax.y < maxy) aabbmax.y = maxy;
+	if (aabbmax.z < maxz) aabbmax.z = maxz;
+	
+	break;
+    }
+  }
+  
+  tree->root->min = aabbmin;
+  tree->root->max = aabbmax;
+  tree->depthLimit = ceil(log(scene->objects.size()));
+  
+  subdivide(scene, tree, tree->root);
+  
+  return NULL;
 }
 
 
@@ -67,11 +107,77 @@ bool intersectSphereAabb(vec3 sphereCenter, float sphereRadius, vec3 aabbMin, ve
 }
 
 
+// Generate children, compute split position, move objets to children and subdivide if needed.
 void subdivide(Scene *scene, KdTree *tree, KdTreeNode *node) {
-
-    //!\todo generate children, compute split position, move objets to children and subdivide if needed.
-
-
+  
+  if (tree->depthLimit == node->depth) {
+    node->leaf = true;
+  }
+  
+  if (node->objects.size() == 1) {
+    node->leaf = true;
+  }
+  
+  std::size_t size = scene->objects.size();
+  sceneGlobal = scene;
+  axisGlobal = node->axis;
+  
+  std::qsort (node->objects.data(), size, sizeof (int), [](const void* a, const void* b) {
+    int arg1 = *static_cast<const int*>(a);
+    int arg2 = *static_cast<const int*>(b);
+    
+    Object *o1 = sceneGlobal->objects.at(arg1);
+    Object *o2 = sceneGlobal->objects.at(arg2);
+    
+    int v1 = 0, v2 = 0;
+    
+    switch (axisGlobal) {
+      case 0: // X axis
+	v1 = o1->geom.sphere.center.x;
+	v2 = o2->geom.sphere.center.x;
+	break;
+      case 1: // Y axis
+	v1 = o1->geom.sphere.center.y;
+	v2 = o2->geom.sphere.center.y;
+	break;
+      case 2: // Z axis
+	v1 = o1->geom.sphere.center.z;
+	v2 = o2->geom.sphere.center.z;
+	break;
+    }
+    
+    if (v1 < v2) 
+      return -1;
+    if (v1 > v2)
+      return 1;
+    return 0;
+  });
+  
+  int med = ceil(size / 2);
+  Object *median = scene->objects.at(med);
+  
+  switch (axisGlobal) {
+    case 0:
+      node->split = median->geom.sphere.center.x;
+      break;
+    case 1:
+      node->split = median->geom.sphere.center.y;
+      break;
+    case 2:
+      node->split = median->geom.sphere.center.z;
+      break;
+  }
+  
+  node->left = initNode(false, ((node->axis + 1) % 3), node->depth+1);
+  node->right = initNode(false, ((node->axis + 1) % 3), node->depth+1);
+  
+  for (size_t i = med; i < node->objects.size(); i++) {
+    node->right->objects.push_back(node->objects.at(i));
+  }
+  
+  node->left->objects = node->objects;
+  node->left->objects.resize(med-1);
+  
 }
 
 bool traverse(Scene * scene, KdTree * tree, std::stack<StackNode> *stack, StackNode currentNode, Ray * ray, Intersection *intersection) {

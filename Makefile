@@ -8,7 +8,7 @@ clean:
 	@rm -f *.o ./lodepng-master/lodepng.o *~ $(TARGETS) *.d
 
 CC=g++
-CFLAGS=-Wall -std=c++11 -g -I./glm-0.9.8.4/glm/ -fopenmp -I./lodepng-master/ -O3
+CFLAGS=-Wall -std=c++11 -g -I./glm-0.9.8.4/glm/ -fopenmp -I./lodepng-master/ -Ofast -march=native
 sources=main.cpp image.cpp raytracer.cpp scene.cpp kdtree.cpp ./lodepng-master/lodepng.cpp unit-test.cpp
 
 OBJ=main.o

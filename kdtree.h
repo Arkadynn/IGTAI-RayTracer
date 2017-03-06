@@ -4,6 +4,9 @@
 #include "ray.h"
 #include "raytracer.h"
 
+#include <cstdlib>
+#include <climits>
+
 typedef struct s_kdtree KdTree;
 
 bool intersectKdTree(Scene *scene, KdTree *tree, Ray *ray, Intersection *intersection);
