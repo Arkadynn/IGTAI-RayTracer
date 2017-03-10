@@ -16,7 +16,7 @@ typedef struct material_s {
   color3 diffuseColor;	//! Base color
 } Material;
 
-enum Etype {SPHERE=1, PLANE=2, TRIANGLE=3, CYLINDER=4};
+enum Etype {SPHERE=1, PLANE=2, TRIANGLE=3};
 
 
 //! create a new sphere structure

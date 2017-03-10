@@ -64,19 +64,43 @@ KdTree*  initKdTree(Scene *scene) {
     tree->root->objects.push_back(i);
     
     Geometry geom = object->geom;
+    
+    float minx, miny, minz, maxx, maxy, maxz;
+    
     switch (object->geom.type) {
       case SPHERE:
-	float minx = geom.sphere.center.x - geom.sphere.radius;
-	float miny = geom.sphere.center.y - geom.sphere.radius;
-	float minz = geom.sphere.center.z - geom.sphere.radius;
+	minx = geom.sphere.center.x - geom.sphere.radius;
+	miny = geom.sphere.center.y - geom.sphere.radius;
+	minz = geom.sphere.center.z - geom.sphere.radius;
 	
 	if (aabbmin.x > minx) aabbmin.x = minx;
 	if (aabbmin.y > miny) aabbmin.y = miny;
 	if (aabbmin.z > minz) aabbmin.z = minz;
 	
-	float maxx = geom.sphere.center.x + geom.sphere.radius;
-	float maxy = geom.sphere.center.y + geom.sphere.radius;
-	float maxz = geom.sphere.center.z + geom.sphere.radius;
+	maxx = geom.sphere.center.x + geom.sphere.radius;
+	maxy = geom.sphere.center.y + geom.sphere.radius;
+	maxz = geom.sphere.center.z + geom.sphere.radius;
+	
+	if (aabbmax.x < maxx) aabbmax.x = maxx;
+	if (aabbmax.y < maxy) aabbmax.y = maxy;
+	if (aabbmax.z < maxz) aabbmax.z = maxz;
+	break;
+      case TRIANGLE:
+	point3 a = geom.triangle.v0;
+	point3 b = geom.triangle.v1;
+	point3 c = geom.triangle.v2;
+	
+	minx = (a.x < b.x) ? (a.x < c.x) ? a.x : c.x : (b.x < c.x) ? b.x : c.x;
+	miny = (a.y < b.y) ? (a.y < c.y) ? a.y : c.y : (b.y < c.y) ? b.y : c.y;
+	minz = (a.z < b.z) ? (a.z < c.z) ? a.z : c.z : (b.z < c.z) ? b.z : c.z;
+	
+	if (aabbmin.x > minx) aabbmin.x = minx;
+	if (aabbmin.y > miny) aabbmin.y = miny;
+	if (aabbmin.z > minz) aabbmin.z = minz;
+	
+	maxx = (a.x > b.x) ? (a.x > c.x) ? a.x : c.x : (b.x > c.x) ? b.x : c.x;
+	maxy = (a.y > b.y) ? (a.y > c.y) ? a.y : c.y : (b.y > c.y) ? b.y : c.y;
+	maxz = (a.z > b.z) ? (a.z > c.z) ? a.z : c.z : (b.z > c.z) ? b.z : c.z;
 	
 	if (aabbmax.x < maxx) aabbmax.x = maxx;
 	if (aabbmax.y < maxy) aabbmax.y = maxy;
@@ -213,6 +237,21 @@ bool intersectKdTree(Scene *scene, KdTree *tree, Ray *ray, Intersection *interse
     bool hasIntersection = false;
 
     //!\todo call vanilla intersection on non kdtree object, then traverse the tree to compute other intersections
-
+    
+    for (Object *o : scene->objects) {
+    switch (o->geom.type) {
+      case PLANE:
+	hasIntersection |= intersectPlane(ray, intersection, o);
+	break;
+      case SPHERE:
+      case TRIANGLE:
+	StackNode currentNode;
+	hasIntersection |= traverse(scene, tree, nullptr, currentNode, ray, intersection);
+	break;
+      default:
+	perror("An unhandeld object have been found\n");
+    }
+  }
+    
     return hasIntersection;
 }

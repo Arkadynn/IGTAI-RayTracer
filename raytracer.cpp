@@ -7,8 +7,7 @@
 #include <stdio.h>
 #include <cmath>
 
-#define MAX_DEPTH 5
-#define ANTIALIASING_X 4
+#define MAX_DEPTH 10
 
 /// acne_eps is a small constant used to prevent acne when computing intersection
 //  or boucing (add this amount to the position before casting a new ray !
@@ -87,57 +86,6 @@ bool intersectPlane(Ray *ray, Intersection *intersection, Object *obj) {
 
 }
 
-bool intersectEllipsoide(Ray *ray, Intersection *intersection, Object *obj) {
-  bool hasIntersection = false;
-  
-  float t;
-  vec3 d = ray->dir;
-  point3 o = ray->orig;
-  point3 centre_ = obj->geom.ellipsoide.center;
-  float Ra = obj->geom.ellipsoide.a;
-  float Rb = obj->geom.ellipsoide.b;
-  float Rc = obj->geom.ellipsoide.c;
-  
-  vec3 v = vec3(Rb*Rb*Rc*Rc, Ra*Ra*Rc*Rc, Ra*Ra*Rb*Rb);
-  
-  float a = dot<float>(dot<float>(v, d), d);
-  float b = 2 * dot<float>(dot<float>(v, d), o);
-  float c = dot<float>(dot<float>(v, o), o) - a*a*b*b*c*c;
-  
-  float delta = b * b - 4.0f * a * c;
-  
-  
-  if (delta >= 0) {
-    if (delta == 0) {
-      t = -b / (2 * a);
-      hasIntersection = (t >= ray->tmin && t <= ray->tmax);
-    } else {
-      float res1 = (-b - sqrt(delta))/(2 * a);
-      float res2 = (-b + sqrt(delta))/(2 * a);
-      if (res1 >= 0 && res2 >= 0) {
-	t = (res1 < res2) ? res1 : res2;
-	hasIntersection = (t >= ray->tmin && t <= ray->tmax);
-      } else if (res1 < 0 && res2 >= 0) {
-	t = res2;
-	hasIntersection = (t >= ray->tmin && t <= ray->tmax);
-      } else if (res1 >= 0 && res2 < 0) {
-	t = res1;
-	hasIntersection = (t >= ray->tmin && t <= ray->tmax);
-      } else {
-	hasIntersection = false;
-      }
-    }
-    
-    if (hasIntersection) {
-      ray->tmax = t;
-      intersection->mat = &obj->mat;
-      intersection->position = rayAt(*ray, t);
-      vec3 n = v;
-      intersection->normal = normalize<float>(n);
-    }
-  }
-}
-
 bool intersectSphere(Ray *ray, Intersection *intersection, Object *obj) {
   bool hasIntersection = false;
   
@@ -157,7 +105,6 @@ bool intersectSphere(Ray *ray, Intersection *intersection, Object *obj) {
   float delta = b * b - 4.0f * a * c;
   
   if (delta >= 0) {
-    //! \todo reprendre ici
     if (delta == 0) {
       t = -b / (2 * a);
       hasIntersection = (t >= ray->tmin && t <= ray->tmax);
@@ -381,7 +328,6 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
   if (ray->depth > MAX_DEPTH) return ret;
   
   Intersection intersection;
-  
   if (intersectScene(scene, ray, &intersection)) {
     for (Light *light : scene->lights) {
       vec3 light_dir = light->position - intersection.position;
@@ -391,19 +337,20 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
       Intersection shadow;
       if (!intersectScene(scene, &r, &shadow)) {
 	ret += shade(intersection.normal, -ray->dir, l, light->color, intersection.mat);
-      }	
+      }
     }
     
     vec3 newDir = normalize<float>(reflect(ray->dir, intersection.normal));
     float LdotH = dot<float>(newDir, normalize<float>(ray->dir + newDir));
     rayInit(ray, intersection.position, newDir, acne_eps, 100000, ray->depth+1);
     ret += RDM_Fresnel(LdotH, 1, intersection.mat->IOR) * trace_ray(scene, ray, tree);
-    
+  
   } else {
     ret = scene->skyColor;
   }
   
   return ret;
+  
 }
 
 void renderImage(Image *img, Scene *scene) {
