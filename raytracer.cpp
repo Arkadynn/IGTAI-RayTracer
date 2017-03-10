@@ -7,12 +7,54 @@
 #include <stdio.h>
 #include <cmath>
 
-#define MAX_DEPTH 15
+#define MAX_DEPTH 5
+#define ANTIALIASING_X 4
 
 /// acne_eps is a small constant used to prevent acne when computing intersection
 //  or boucing (add this amount to the position before casting a new ray !
 const float acne_eps = 1e-4;
 int cpt = 0;
+
+bool intersectTriangle (Ray *ray, Intersection *intersection, Object *triangle) {
+  point3 v0 = triangle->geom.triangle.v0;
+  point3 v1 = triangle->geom.triangle.v1;
+  point3 v2 = triangle->geom.triangle.v2;
+  
+  vec3 n = cross<float>((v1 - v0), (v2 - v0));
+  n = normalize<float>(n);
+  float cos_theta = dot<float>(n, ray->dir);
+  
+  if (cos_theta == 0)	return false;
+  
+  float D = dot<float>(-n, v0);
+
+  float t = -(dot<float>(n, ray->orig) + D) / cos_theta;
+  
+  if (t < 0 || t > ray->tmax || t < ray->tmin) return false;
+  
+  vec3 hitPoint = rayAt(*ray, t);
+  
+  vec3 edge0 = v1 - v0;
+  vec3 edge1 = v2 - v1;
+  vec3 edge2 = v0 - v2;
+  
+  vec3 c0 = hitPoint - v0;
+  vec3 c1 = hitPoint - v1;
+  vec3 c2 = hitPoint - v2;
+  
+  
+  if (dot<float>(n, cross<float>(edge0, c0)) > 0 &&
+      dot<float>(n, cross<float>(edge1, c1)) > 0 &&
+      dot<float>(n, cross<float>(edge2, c2)) > 0) {
+    intersection->normal = n;
+    intersection->position = hitPoint;
+    intersection->mat = &triangle->mat;
+    ray->tmax = t;
+    return true;
+  }
+  
+  return false;
+}
 
 bool intersectPlane(Ray *ray, Intersection *intersection, Object *obj) {
   bool hasIntersection = false;
@@ -43,6 +85,57 @@ bool intersectPlane(Ray *ray, Intersection *intersection, Object *obj) {
   
   return hasIntersection;
 
+}
+
+bool intersectEllipsoide(Ray *ray, Intersection *intersection, Object *obj) {
+  bool hasIntersection = false;
+  
+  float t;
+  vec3 d = ray->dir;
+  point3 o = ray->orig;
+  point3 centre_ = obj->geom.ellipsoide.center;
+  float Ra = obj->geom.ellipsoide.a;
+  float Rb = obj->geom.ellipsoide.b;
+  float Rc = obj->geom.ellipsoide.c;
+  
+  vec3 v = vec3(Rb*Rb*Rc*Rc, Ra*Ra*Rc*Rc, Ra*Ra*Rb*Rb);
+  
+  float a = dot<float>(dot<float>(v, d), d);
+  float b = 2 * dot<float>(dot<float>(v, d), o);
+  float c = dot<float>(dot<float>(v, o), o) - a*a*b*b*c*c;
+  
+  float delta = b * b - 4.0f * a * c;
+  
+  
+  if (delta >= 0) {
+    if (delta == 0) {
+      t = -b / (2 * a);
+      hasIntersection = (t >= ray->tmin && t <= ray->tmax);
+    } else {
+      float res1 = (-b - sqrt(delta))/(2 * a);
+      float res2 = (-b + sqrt(delta))/(2 * a);
+      if (res1 >= 0 && res2 >= 0) {
+	t = (res1 < res2) ? res1 : res2;
+	hasIntersection = (t >= ray->tmin && t <= ray->tmax);
+      } else if (res1 < 0 && res2 >= 0) {
+	t = res2;
+	hasIntersection = (t >= ray->tmin && t <= ray->tmax);
+      } else if (res1 >= 0 && res2 < 0) {
+	t = res1;
+	hasIntersection = (t >= ray->tmin && t <= ray->tmax);
+      } else {
+	hasIntersection = false;
+      }
+    }
+    
+    if (hasIntersection) {
+      ray->tmax = t;
+      intersection->mat = &obj->mat;
+      intersection->position = rayAt(*ray, t);
+      vec3 n = v;
+      intersection->normal = normalize<float>(n);
+    }
+  }
 }
 
 bool intersectSphere(Ray *ray, Intersection *intersection, Object *obj) {
@@ -91,12 +184,7 @@ bool intersectSphere(Ray *ray, Intersection *intersection, Object *obj) {
       intersection->position = rayAt(*ray, t);
       vec3 n = intersection->position - centre_;
       intersection->normal = normalize<float>(n);
-      //printf("intersection at : %f %f %f\n", intersection->position.x, intersection->position.y, intersection->position.z);
-    } else {
-      //printf("no intersection\n");
     }
-  } else {
-    //printf("no intersection\n");
   }
   
   return hasIntersection;
@@ -113,8 +201,11 @@ bool intersectScene(const Scene *scene, Ray *ray, Intersection *intersection) {
       case PLANE:
 	hasIntersection |= intersectPlane(ray, intersection, o);
 	break;
+      case TRIANGLE:
+	hasIntersection |= intersectTriangle(ray, intersection, o);
+	break;
       default:
-	perror("An unkown object have been found\n");
+	perror("An unhandeld object have been found\n");
     }
   }
 
@@ -300,8 +391,7 @@ color3 trace_ray(Scene * scene, Ray *ray, KdTree *tree) {
       Intersection shadow;
       if (!intersectScene(scene, &r, &shadow)) {
 	ret += shade(intersection.normal, -ray->dir, l, light->color, intersection.mat);
-	
-      }
+      }	
     }
     
     vec3 newDir = normalize<float>(reflect(ray->dir, intersection.normal));

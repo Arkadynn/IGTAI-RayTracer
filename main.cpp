@@ -7,8 +7,8 @@
 #include "raytracer.h"
 #include "image.h"
 
-#define WIDTH 16000
-#define HEIGHT 12000
+#define WIDTH 8000
+#define HEIGHT 6000
 
 /* nickel :
  mat.diffuseColor = color3(0.014, 0.012, 0.012);
@@ -90,6 +90,7 @@ Scene * initScene0() {
     mat.specularColor = color3(0.5f);
 
     mat.diffuseColor = color3(.5f);
+    
     addObject( scene, initSphere(point3(0,0, 0),0.25, mat));
 
 
@@ -106,6 +107,7 @@ Scene * initScene0() {
 
     mat.diffuseColor  = color3(0.6f);
     addObject(scene, initPlane(vec3(0,1,0), 0, mat));
+    
     
     addLight(scene, initLight(point3(10, 10,10), color3(1,1,1)));
     addLight(scene, initLight(point3(4, 10,-2), color3(1,1,1)));
@@ -146,7 +148,7 @@ Scene * initScene1() {
     mat.IOR = 2.4449;
     mat.roughness = 0.0681;
     addObject( scene, initSphere(point3(-3.f, 1.f, 0.f),2., mat));
-
+    
     mat.diffuseColor = color3(0.016, 0.073, 0.04);
     mat.specularColor  = color3(1.0, 1.056, 1.146);
     mat.IOR = 1.1481;
@@ -155,6 +157,8 @@ Scene * initScene1() {
 
     addLight(scene, initLight(point3(10, 10,10), color3(10,10,10)));
     addLight(scene, initLight(point3(4, 10,-2), color3(5,3,10)));
+    
+    
     return scene;
 }
 
@@ -271,6 +275,47 @@ Scene* initScene3(){
     return scene;
 }
 
+Scene * initScene4() {
+    Scene *scene = initScene();
+    setCamera(scene, point3(3,1,0), vec3(0,0.3,0), vec3(0,1,0), 60, (float)WIDTH/(float)HEIGHT);
+    setSkyColor(scene, color3(0.1f, 0.3f, 0.5f));
+    Material mat;
+    mat.IOR = 1.3;
+    mat.roughness = 0.1;
+    mat.specularColor = color3(0.5f);
+
+    mat.diffuseColor = color3(.5f);
+    
+    addObject( scene, initSphere(point3(0,0, 0),0.25, mat));
+
+
+    mat.diffuseColor = color3(0.5f, 0.f, 0.f);
+    addObject( scene, initSphere(point3(1,0, 0),.25, mat));
+
+
+    mat.diffuseColor = color3(0.f, 0.5f, 0.5f);
+    addObject( scene, initSphere(point3(0,1, 0),.25, mat));
+
+    mat.diffuseColor = color3(0.f, 0.f, 0.5f);
+    addObject( scene, initSphere(point3(0,0,1),.25, mat));
+
+
+    mat.diffuseColor  = color3(0.6f);
+    addObject(scene, initPlane(vec3(0,1,0), 0, mat));
+    
+    mat.diffuseColor = color3(1, 0, 0);
+    addObject(scene, initTriangle(point3(0, 1, 0), point3(0, 0, 1), point3(1, 0, 0), mat));
+    mat.diffuseColor = color3(0, 1, 0);
+    addObject(scene, initTriangle(point3(0, 1, 0), point3(0, 0, 0), point3(0, 0, 1), mat));
+    mat.diffuseColor = color3(0, 0, 1);
+    addObject(scene, initTriangle(point3(0, 1, 0), point3(0, 0, 0), point3(1, 0, 0), mat));
+    
+    addLight(scene, initLight(point3(10, 10,10), color3(1,1,1)));
+    addLight(scene, initLight(point3(4, 10,-2), color3(1,1,1)));
+
+    return scene;
+}
+
 int main(int argc, char *argv[]) {
     printf("Welcom to the L3 IGTAI RayTracer project\n");
 
@@ -304,6 +349,9 @@ int main(int argc, char *argv[]) {
         break;
     case  3 :
         scene = initScene3();
+        break;
+    case  4 :
+        scene = initScene4();
         break;
 	
     default :

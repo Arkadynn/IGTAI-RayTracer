@@ -23,6 +23,17 @@ Object *initPlane(vec3 normal, float d, Material mat) {
     return ret;
 }
 
+Object *initTriangle(point3 v0, point3 v1, point3 v2, Material mat) {
+  Object *ret;
+  ret = (Object *)malloc(sizeof(Object));
+  ret->geom.type = TRIANGLE;
+  ret->geom.triangle.v0 = v0;
+  ret->geom.triangle.v1 = v1;
+  ret->geom.triangle.v2 = v2;
+  memcpy(&(ret->mat), &mat, sizeof(Material));
+  return ret;
+}
+
 void freeObject(Object *obj) {
     free(obj);
 }

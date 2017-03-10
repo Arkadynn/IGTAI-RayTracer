@@ -81,7 +81,6 @@ KdTree*  initKdTree(Scene *scene) {
 	if (aabbmax.x < maxx) aabbmax.x = maxx;
 	if (aabbmax.y < maxy) aabbmax.y = maxy;
 	if (aabbmax.z < maxz) aabbmax.z = maxz;
-	
 	break;
     }
   }
@@ -126,8 +125,8 @@ void subdivide(Scene *scene, KdTree *tree, KdTreeNode *node) {
     int arg1 = *static_cast<const int*>(a);
     int arg2 = *static_cast<const int*>(b);
     
-    Object *o1 = sceneGlobal->objects.at(arg1);
-    Object *o2 = sceneGlobal->objects.at(arg2);
+    Object* o1 = sceneGlobal->objects.at(arg1);
+    Object* o2 = sceneGlobal->objects.at(arg2);
     
     int v1 = 0, v2 = 0;
     
@@ -171,20 +170,19 @@ void subdivide(Scene *scene, KdTree *tree, KdTreeNode *node) {
   node->left = initNode(false, ((node->axis + 1) % 3), node->depth+1);
   node->right = initNode(false, ((node->axis + 1) % 3), node->depth+1);
   
-  for (size_t i = med; i < node->objects.size(); i++) {
+  for (size_t i = med; i < node->objects.size(); i++)
     node->right->objects.push_back(node->objects.at(i));
-  }
   
   node->left->objects = node->objects;
   node->left->objects.resize(med-1);
   
 }
 
+// Traverse kdtree to find intersection
 bool traverse(Scene * scene, KdTree * tree, std::stack<StackNode> *stack, StackNode currentNode, Ray * ray, Intersection *intersection) {
-
-    //! \todo traverse kdtree to find intersection
-
-    return false;
+  
+  
+  return false;
 }
 
 

@@ -23,8 +23,10 @@ typedef struct intersection_s {
 // ray->tmax is updated during this process
 bool intersectScene(const Scene *scene, Ray *ray, Intersection *intersection );
 bool intersectCylinder (Ray *ray, Intersection *intersection, Object *cylinder);
+bool intersectTriangle (Ray *ray, Intersection *intersection, Object *triangle);
 bool intersectPlane(Ray *ray, Intersection *intersection, Object *plane);
 bool intersectSphere(Ray *ray, Intersection *intersection, Object *sphere);
+bool intersectEllipsoide(Ray *ray, Intersection *intersection, Object *obj);
 
 void renderImage(Image *img, Scene *scene);
 
